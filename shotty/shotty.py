@@ -9,19 +9,11 @@ def setup_session(profile):
 
 	return
 
-def filter_instances(project):
-	instances = []
-	if project:
-		filters = [{'Name':'tag:Project', 'Values':[project]}]
-		instances = ec2.instances.filter(Filters=filters)
-	else:
-		#instances = ec2.instances.all()
-		#Hardcode project for testing
-		project = 'Valkyrie'
-		filters = [{'Name':'tag:Project', 'Values':[project]}]
-		instances = ec2.instances.filter(Filters=filters)
+def filter_instances(project,instanceid):
+	projectFilter =  [{'Name':'tag:Project', 'Values':[project]}] if project else [{'Name':'tag:Project', 'Values':['Valkyrie']}]
+	instanceFilter = [instanceid] if instanceid else []
 
-	return instances
+	return ec2.instances.filter(Filters=projectFilter,InstanceIds=instanceFilter)
 
 def has_pending_snapshot(volume):
 	snapshots = list(volume.snapshots.all())
@@ -44,10 +36,12 @@ def volumes():
 @volumes.command('list')
 @click.option('--project', default=None,
 	help="Only volumes for tagged project")
-def list_volumes(project):
+@click.option('--instanceid', default=None,
+	help="Only volumes for specified instanceid")
+def list_volumes(project,instanceid):
 	"List EC2 volumes"
 
-	instances = filter_instances(project)
+	instances = filter_instances(project,instanceid)
 	
 	for i in instances:
 		for v in i.volumes.all():
@@ -68,12 +62,15 @@ def snapshots():
 @snapshots.command('list')
 @click.option('--project', default=None,
 	help="Only snapshots for tagged project")
+@click.option('--instanceid', default=None,
+	help="Only snapshots for specified instanceid")
 @click.option('--all', 'list_all', default=False, is_flag=True,
 	help="List all snapshots for each volume, not just the most recent")
-def list_snapshots(project, list_all):
+
+def list_snapshots(project,list_all,instanceid):
 	"List EC2 Snapshots"
 
-	instances = filter_instances(project)
+	instances = filter_instances(project, instanceid)
 
 	for i in instances:
 		for v in i.volumes.all():
@@ -99,12 +96,14 @@ def instances():
 @instances.command('list')
 @click.option('--project', default=None,
 	help="Only instances for tagged  project")
+@click.option('--instanceid', default=None,
+	help="Only specified instanceid")
 @click.option('--force','force_action', default=False, is_flag=True,
 	help="Force action (e.g. if project is not provided)") 
-def list_instances(project,force_action):
+def list_instances(project,force_action,instanceid):
 	"List EC2 Instances"
 
-	instances = filter_instances(project)
+	instances = filter_instances(project,instanceid)
 	
 	#perform command if project is set or if force is used
 	if project or force_action:	
@@ -124,12 +123,14 @@ def list_instances(project,force_action):
 @instances.command('stop')
 @click.option('--project', default=None,
 	help='Only instances for tagged project')
+@click.option('--instanceid', default=None,
+	help="Only specified instanceid")
 @click.option('--force','force_action', default=False, is_flag=True,
 	help="Force action (e.g. if project is not provided)")
-def stop_instances(project,force_action):
+def stop_instances(project,force_action,instanceid):
 	"Stop EC2 Instances"
 
-	instances = filter_instances(project)
+	instances = filter_instances(project,instanceid)
 
 	#perform command if project is set or if force is used
 	if project or force_action:
@@ -146,12 +147,14 @@ def stop_instances(project,force_action):
 @instances.command('start')
 @click.option('--project', default=None,
 	help='Only instances for tagged project')
+@click.option('--instanceid', default=None,
+        help="Only specified instanceid")
 @click.option('--force','force_action', default=False, is_flag=True,
 	help="Force action (e.g. if project is not provided)")
-def start_instances(project,force_action):
+def start_instances(project,force_action,instanceid):
 	"Start EC2 Instances"
 
-	instances = filter_instances(project)
+	instances = filter_instances(project,instanceid)
 
 	#perform command if project is set or if force is used
 	if project or force_action:
@@ -168,12 +171,14 @@ def start_instances(project,force_action):
 @instances.command('reboot')
 @click.option('--project', default=None,
 	help='Only instances for tagged project')
+@click.option('--instanceid', default=None,
+        help="Only specified instanceid")
 @click.option('--force','force_action', default=False, is_flag=True,
 	help="Force action (e.g. if project is not provided)")
-def reboot_instances(project,force_action):
+def reboot_instances(project,force_action,instanceid):
 	"Reboot EC2 Instances"
 
-	instances = filter_instances(project)
+	instances = filter_instances(project,instanceid)
 
 	#perform command if project is set or if force is used
 	if project or force_action:
@@ -190,12 +195,14 @@ def reboot_instances(project,force_action):
 	help="Create snapshots of all volumes")
 @click.option('--project', default=None,
 	help="Only instances for tagged  project")
+@click.option('--instanceid', default=None,
+        help="Only snapshots for specified instanceid")
 @click.option('--force','force_action', default=False, is_flag=True,
         help="Force action (e.g. if project is not provided)")
-def create_snapshots(project,force_action):
+def create_snapshots(project,force_action,instanceid):
 	"Create snapshots for EC2 Instances"
 		
-	instances = filter_instances(project)
+	instances = filter_instances(project,instanceid)
 
 	#perform command if project is set or if force is used
 	if project or force_action:	
