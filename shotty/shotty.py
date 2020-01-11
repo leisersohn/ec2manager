@@ -12,7 +12,10 @@ def filter_instances(project):
 		instances = ec2.instances.filter(Filters=filters)
 	else:
 		#instances = ec2.instances.all()
-		instances = []
+		#Hardcode project for testing
+		project = 'Valkyrie'
+		filters = [{'Name':'tag:Project', 'Values':[project]}]
+		instances = ec2.instances.filter(Filters=filters)
 
 	return instances
 
@@ -89,88 +92,126 @@ def instances():
 @instances.command('list')
 @click.option('--project', default=None,
 	help="Only instances for tagged  project")
-def list_instances(project):
+@click.option('--force','force_action', default=False, is_flag=True,
+	help="Force action (e.g. if project is not provided)") 
+def list_instances(project,force_action):
 	"List EC2 Instances"
+
 	instances = filter_instances(project)
 	
-	for i in instances:
-		tags = { t['Key']: t['Value'] for t in i.tags or [] }
-		print(', '.join((
-			i.id,
-			i.instance_type,
-			i.placement['AvailabilityZone'],
-			i.state['Name'],
-			i.public_dns_name,
-			tags.get('Project','<no project>')
-			)))
+	#perform command if project is set or if force is used
+	if project or force_action:	
+		for i in instances:
+			tags = { t['Key']: t['Value'] for t in i.tags or [] }
+			print(', '.join((
+				i.id,
+				i.instance_type,
+				i.placement['AvailabilityZone'],
+				i.state['Name'],
+				i.public_dns_name,
+				tags.get('Project','<no project>')
+				)))
 
 	return
 
 @instances.command('stop')
 @click.option('--project', default=None,
 	help='Only instances for tagged project')
-def stop_instances(project):
+@click.option('--force','force_action', default=False, is_flag=True,
+	help="Force action (e.g. if project is not provided)")
+def stop_instances(project,force_action):
 	"Stop EC2 Instances"
 
 	instances = filter_instances(project)
 
-	for i in instances:
-		print("Stopping {0}...".format(i.id))
-		try:
-			i.stop()
-		except botocore.exceptions.ClientError as e:
-			print(" Could not stop {0}".format(i.id) + str(e))
-			continue
+	#perform command if project is set or if force is used
+	if project or force_action:
+		for i in instances:
+			print("Stopping {0}...".format(i.id))
+			try:
+				i.stop()
+			except botocore.exceptions.ClientError as e:
+				print(" Could not stop {0}".format(i.id) + str(e))
+				continue
 
 	return
 
 @instances.command('start')
 @click.option('--project', default=None,
 	help='Only instances for tagged project')
-def start_instances(project):
+@click.option('--force','force_action', default=False, is_flag=True,
+	help="Force action (e.g. if project is not provided)")
+def start_instances(project,force_action):
 	"Start EC2 Instances"
 
 	instances = filter_instances(project)
 
-	for i in instances:
-		print("Starting {0}...".format(i.id))
-		try:
-			i.start()
-		except botocore.exceptions.ClientError as e:
-			print(" Could not start {0}".format(i,id) + str(e))
-			continue
+	#perform command if project is set or if force is used
+	if project or force_action:
+		for i in instances:
+			print("Starting {0}...".format(i.id))
+			try:
+				i.start()
+			except botocore.exceptions.ClientError as e:
+				print(" Could not start {0}".format(i,id) + str(e))
+				continue
 
+	return
+
+@instances.command('reboot')
+@click.option('--project', default=None,
+	help='Only instances for tagged project')
+@click.option('--force','force_action', default=False, is_flag=True,
+	help="Force action (e.g. if project is not provided)")
+def reboot_instances(project,force_action):
+	"Reboot EC2 Instances"
+
+	instances = filter_instances(project)
+
+	#perform command if project is set or if force is used
+	if project or force_action:
+		for i in instances:
+			if i.state['Name'] == 'running':
+				print("Rebooting {0}...".format(i.id))
+				i.reboot()
+			else:
+				print("Not rebooting {0}. instance is currenlty in state {1}".format(i.id,i.state['Name']))
+	
 	return
 
 @instances.command('snapshot',
 	help="Create snapshots of all volumes")
 @click.option('--project', default=None,
 	help="Only instances for tagged  project")
-def create_snapshots(project):
+@click.option('--force','force_action', default=False, is_flag=True,
+        help="Force action (e.g. if project is not provided)")
+def create_snapshots(project,force_action):
 	"Create snapshots for EC2 Instances"
 		
 	instances = filter_instances(project)
 
-	for i in instances:
-		print("Stopping {0}...".format(i.id))
+	#perform command if project is set or if force is used
+	if project or force_action:	
+		for i in instances:
+			print("Stopping {0}...".format(i.id))
 
-		i.stop()
-		i.wait_until_stopped()
+			i.stop()
+			i.wait_until_stopped()
 
-		for v in i.volumes.all():
-			if has_pending_snapshot(v):
-				print(" Skipping {0}, snapshot already in progress".format(v.id))
-				continue
+			for v in i.volumes.all():
+				if has_pending_snapshot(v):
+					print(" Skipping {0}, snapshot already in progress".format(v.id))
+					continue
 
-			print("  Creating snapshot of {0}".format(v.id))
-			v.create_snapshot(Description="Created by ec2manager")
+				print("  Creating snapshot of {0}".format(v.id))
+				v.create_snapshot(Description="Created by ec2manager")
 
-		print("Starting {0}...".format(i.id))
+			print("Starting {0}...".format(i.id))
 
-		i.start()
-		i.wait_until_running()
+			i.start()
+			i.wait_until_running()
 
-	print("Job's done!")
+		print("Job's done!")
 
 	return
 
