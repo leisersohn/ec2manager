@@ -2,8 +2,12 @@ import boto3
 import botocore
 import click
 
-session = boto3.Session(profile_name='shotty')
-ec2 = session.resource('ec2')
+def setup_session(profile):
+	session = boto3.Session(profile_name=profile)
+	global ec2
+	ec2 = session.resource('ec2')
+
+	return
 
 def filter_instances(project):
 	instances = []
@@ -26,8 +30,11 @@ def has_pending_snapshot(volume):
 
 #Define main command line group
 @click.group()
-def cli():
+@click.option('--profile', default='shotty',
+	help="Provide aws config profile (default:shotty)")
+def cli(profile):
 	"""Shotty manages snapshots"""
+	setup_session(profile)	
 
 #Define volumes group and the group commands
 @cli.group('volumes')
