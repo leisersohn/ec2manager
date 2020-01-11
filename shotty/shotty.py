@@ -211,7 +211,11 @@ def create_snapshots(project,force_action):
 					continue
 
 				print("  Creating snapshot of {0}".format(v.id))
-				v.create_snapshot(Description="Created by ec2manager")
+				try:	
+					v.create_snapshot(Description="Created by ec2manager")
+				except botocore.exceptions.ClientError as e:
+					print(" Could not create snapshot for volume {0}".format(v.id) + str(e))
+					continue
 
 			print("Starting {0}...".format(i.id))
 
