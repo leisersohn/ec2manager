@@ -42,6 +42,7 @@ def list_volumes(project,instanceid):
 	"List EC2 volumes"
 
 	instances = filter_instances(project,instanceid)
+	print(instances)
 	
 	for i in instances:
 		for v in i.volumes.all():
@@ -207,11 +208,14 @@ def create_snapshots(project,force_action,instanceid):
 	#perform command if project is set or if force is used
 	if project or force_action:	
 		for i in instances:
-			print("Stopping {0}...".format(i.id))
-
-			i.stop()
-			i.wait_until_stopped()
-
+			org_state = i.state['Name']
+			print("{0} is in status {1}...".format(i.id,org_state))
+			
+			if org_state == 'running':
+				print("Stopping...")
+				i.stop()
+				i.wait_until_stopped()
+				
 			for v in i.volumes.all():
 				if has_pending_snapshot(v):
 					print(" Skipping {0}, snapshot already in progress".format(v.id))
@@ -224,10 +228,10 @@ def create_snapshots(project,force_action,instanceid):
 					print(" Could not create snapshot for volume {0}".format(v.id) + str(e))
 					continue
 
-			print("Starting {0}...".format(i.id))
-
-			i.start()
-			i.wait_until_running()
+			if org_state == 'running':	
+				print("Starting {0}...".format(i.id))
+				i.start()
+				i.wait_until_running()
 
 		print("Job's done!")
 
