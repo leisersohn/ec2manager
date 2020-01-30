@@ -1,6 +1,7 @@
 import boto3
 import botocore
 import click
+import datetime
 
 def setup_session(profile):
 	session = boto3.Session(profile_name=profile)
@@ -19,6 +20,26 @@ def has_pending_snapshot(volume):
 	snapshots = list(volume.snapshots.all())
 
 	return snapshots and snapshots[0].state == 'pending'
+
+def has_success_snapshot(volume,age_days):
+	success_snapshot_id = None
+	success_snapshot_days = None
+	
+	for s in volume.snapshots.all():
+		if s.state == 'completed':
+			delta_since_snapshot = datetime.date.today() - s.start_time.date()
+			days_since_snapshot = delta_since_snapshot.days
+			if age_days:
+				if int(age_days) >= days_since_snapshot:
+					success_snapshot_id = s.id
+					success_snapshot_days = days_since_snapshot
+					break 
+			else:
+				success_snapshot_id = s.id
+				success_snapshot_days = days_since_snapshot
+				break
+	
+	return success_snapshot_id,success_snapshot_days
 
 #Define main command line group
 @click.group()
@@ -200,7 +221,9 @@ def reboot_instances(project,force_action,instanceid):
         help="Only snapshots for specified instanceid")
 @click.option('--force','force_action', default=False, is_flag=True,
         help="Force action (e.g. if project is not provided)")
-def create_snapshots(project,force_action,instanceid):
+@click.option('--age','age_days', default=None,
+	help="Only take snapshot if last succesfull snapshot is older than age (number of days)")
+def create_snapshots(project,force_action,instanceid,age_days):
 	"Create snapshots for EC2 Instances"
 		
 	instances = filter_instances(project,instanceid)
@@ -208,6 +231,7 @@ def create_snapshots(project,force_action,instanceid):
 	#perform command if project is set or if force is used
 	if project or force_action:	
 		for i in instances:
+			#stop & start only running instances	
 			org_state = i.state['Name']
 			print("{0} is in status {1}...".format(i.id,org_state))
 			
@@ -219,6 +243,11 @@ def create_snapshots(project,force_action,instanceid):
 			for v in i.volumes.all():
 				if has_pending_snapshot(v):
 					print(" Skipping {0}, snapshot already in progress".format(v.id))
+					continue
+
+				success_snapshot_id,success_snapshot_days = has_success_snapshot(v,age_days)
+				if success_snapshot_days != None:
+					print(" Skipping {0}, succesfull snapshot within {1} days already exists".format(v.id,success_snapshot_days))
 					continue
 
 				print("  Creating snapshot of {0}".format(v.id))
