@@ -11,7 +11,8 @@ def setup_session(profile):
 	return
 
 def filter_instances(project,instanceid):
-	projectFilter =  [{'Name':'tag:Project', 'Values':[project]}] if project else [{'Name':'tag:Project', 'Values':['Valkyrie']}]
+	p = project if project else 'Valkyrie'
+	projectFilter =  [{'Name':'tag:Project', 'Values':[p]}]
 	instanceFilter = [instanceid] if instanceid else []
 
 	return ec2.instances.filter(Filters=projectFilter,InstanceIds=instanceFilter)
@@ -234,11 +235,6 @@ def create_snapshots(project,force_action,instanceid,age_days):
 			#stop & start only running instances	
 			org_state = i.state['Name']
 			print("{0} is in status {1}...".format(i.id,org_state))
-			
-			if org_state == 'running':
-				print("Stopping...")
-				i.stop()
-				i.wait_until_stopped()
 				
 			for v in i.volumes.all():
 				if has_pending_snapshot(v):
@@ -249,6 +245,12 @@ def create_snapshots(project,force_action,instanceid,age_days):
 				if success_snapshot_days != None:
 					print(" Skipping {0}, succesfull snapshot within {1} days already exists".format(v.id,success_snapshot_days))
 					continue
+
+				#check current status to determine if instance needs to be stopped
+				if i.state['Name'] == 'running':
+					print("Stopping...")
+					i.stop()
+					i.wait_until_stopped()
 
 				print("  Creating snapshot of {0}".format(v.id))
 				try:	
