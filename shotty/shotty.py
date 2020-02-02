@@ -3,8 +3,8 @@ import botocore
 import click
 import datetime
 
-def setup_session(profile):
-	session = boto3.Session(profile_name=profile)
+def setup_session(profile,region):
+	session = boto3.Session(profile_name=profile,region_name=region)
 	global ec2
 	ec2 = session.resource('ec2')
 
@@ -46,9 +46,11 @@ def has_success_snapshot(volume,age_days):
 @click.group()
 @click.option('--profile', default='shotty',
 	help="Provide aws config profile (default:shotty)")
-def cli(profile):
+@click.option('--region', default=None,
+	help="Provide AWS region (default comes from profile)")
+def cli(profile,region):
 	"""Shotty manages snapshots"""
-	setup_session(profile)	
+	setup_session(profile,region)	
 
 #Define volumes group and the group commands
 @cli.group('volumes')
@@ -259,7 +261,7 @@ def create_snapshots(project,force_action,instanceid,age_days):
 					print(" Could not create snapshot for volume {0}".format(v.id) + str(e))
 					continue
 
-			if org_state == 'running':	
+			if org_state == 'running':
 				print("Starting {0}...".format(i.id))
 				i.start()
 				i.wait_until_running()
