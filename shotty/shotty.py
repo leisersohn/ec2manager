@@ -42,7 +42,7 @@ def has_success_snapshot(volume,age_days):
 	
 	return success_snapshot_id,success_snapshot_days
 
-#Define main command line group
+#define main command line group
 @click.group()
 @click.option('--profile', default='shotty',
 	help="Provide aws config profile (default:shotty)")
